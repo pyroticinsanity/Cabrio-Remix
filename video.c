@@ -146,9 +146,9 @@ int video_decode_video_frame( AVPacket *packet ) {
 			fprintf( stderr, "Warning: Frame disappeared\n" );
 			return -1;
 		}
-		
+	
 		video_pts = packet->pts;
-		avcodec_decode_video( video_codec_context, frame, &got_frame, packet->data, packet->size );
+		avcodec_decode_video2( video_codec_context, frame, &got_frame, packet );
 		
 		if( packet->dts == AV_NOPTS_VALUE && frame->opaque && *(uint64_t*)frame->opaque != AV_NOPTS_VALUE )
 			pts = *(uint64_t *)frame->opaque;
@@ -177,8 +177,14 @@ int video_decode_audio_frame( AVCodecContext *context, uint8_t *buffer, int buff
 	for(;;) {
 		while( audio_packet_size > 0 ) {
 			data_size = buffer_size;
-			used = avcodec_decode_audio2( context, (int16_t *)audio_buffer, &data_size, 
-					  audio_packet_data, audio_packet_size);
+
+			AVPacket avp;
+			av_init_packet( &avp );
+			avp.data = audio_packet_data;
+			avp.size = audio_packet_size;
+
+			used = avcodec_decode_audio3( context, (int16_t *)audio_buffer, &data_size, 
+					  &avp );
 			if( used < 0 ) {
 				/* if error, skip frame */
 				audio_packet_size = 0;
@@ -317,11 +323,11 @@ int video_open( const char *filename ) {
 	}
 	
 	for( i = 0 ; i < format_context->nb_streams ; i++ ) {
-		if( format_context->streams[i]->codec->codec_type == CODEC_TYPE_VIDEO ) {
+		if( format_context->streams[i]->codec->codec_type == AVMEDIA_TYPE_VIDEO ) {
 			video_stream = i;
 			video_codec_context = format_context->streams[video_stream]->codec;
 		}
-		else if( format_context->streams[i]->codec->codec_type == CODEC_TYPE_AUDIO ) {
+		else if( format_context->streams[i]->codec->codec_type == AVMEDIA_TYPE_AUDIO ) {
 			audio_stream = i;
 			audio_codec_context = format_context->streams[audio_stream]->codec;
 		}
